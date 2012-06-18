@@ -105,6 +105,8 @@ Set these flags in nova.conf
 	# deployment kernel & ramdisk image id
 	physical_deploy_kernel = b94ef367-19da-4f88-a66c-5c76cf8e6cbc
 	physical_deploy_ramdisk = 80964bab-4a4b-48ff-aec4-cf5a224ac942
+	###### (StrOpt) The scheduler host manager class to use
+	scheduler_host_manager=nova.scheduler.baremetal_host_manager.BaremetalHostManager
 
 
 Create Baremetal Instance Type
