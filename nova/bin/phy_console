@@ -1,0 +1,198 @@
+#!/usr/bin/env python
+
+# Copyright (c) 2012 NTT DOCOMO, INC. 
+# All Rights Reserved.
+#
+#    Licensed under the Apache License, Version 2.0 (the "License"); you may
+#    not use this file except in compliance with the License. You may obtain
+#    a copy of the License at
+#
+#         http://www.apache.org/licenses/LICENSE-2.0
+#
+#    Unless required by applicable law or agreed to in writing, software
+#    distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+#    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+#    License for the specific language governing permissions and limitations
+#    under the License.
+
+""" start add by DOCOMO """
+
+import shlex, subprocess
+import tempfile
+import traceback
+import sys, getopt, os
+
+POSSIBLE_TOPDIR = os.path.normpath(os.path.join(os.path.abspath(sys.argv[0]),
+                                   os.pardir,
+                                   os.pardir))
+
+if os.path.exists(os.path.join(POSSIBLE_TOPDIR, 'nova', '__init__.py')):
+    sys.path.insert(0, POSSIBLE_TOPDIR)
+
+if os.path.exists(os.path.join(POSSIBLE_TOPDIR, '.venv')):
+    spdir = os.path.join(POSSIBLE_TOPDIR, '.venv', 'lib', 'python2.7', 'site-packages')
+    sys.path.insert(0, spdir)
+
+from nova import context
+from nova import db
+from nova import flags
+from nova.openstack.common import cfg
+from nova import utils
+from nova import log as logging
+
+phy_console_opts = [
+    cfg.StrOpt('physical_term',
+               default='/nova-2011.3/shellinabox/shellinaboxd',
+               help='path to physical terminal program'),
+    cfg.StrOpt('physical_term_cert_dir',
+               default=None,
+               help='path to physical terminal SSL cert(PEM)'),
+    ]
+
+FLAGS = flags.FLAGS
+FLAGS.register_opts(phy_console_opts)
+
+def main():
+    usage = """
+usage:
+            --instance_id=<compute service's instance ID> |
+            --ipmi_address=<compute service's IPMI address> 
+            --terminal_port=<port number used for terminal access>
+            --ipmi_user=<IPMI username>
+            --ipmi_password=<IPMI password>
+            --pidfile=<PID file used by shellinaboxd> (optional)
+
+            """
+    opts, args = getopt.getopt(
+        sys.argv[1:],
+        "",
+        [ 'flagfile=',
+          'instance_id=',
+          'ipmi_address=',
+          'terminal_port=',
+          'ipmi_user=',
+          'ipmi_password=',
+          'pidfile=',
+          ])
+    
+    flagfile = '/etc/nova/nova.conf'
+    instance_id = None
+    values = {
+        'ipmi_address': None,
+        'terminal_port': None,
+        'ipmi_user': None,
+        'ipmi_password': None,
+        'pidfile': None,
+        }
+
+    for o, a in opts:
+        if o == '--instance_id':
+            instance_id = a
+        elif o == '--ipmi_address':
+            values['ipmi_address'] = a
+        elif o == '--terminal_port':
+            values['terminal_port'] = a
+        elif o == '--ipmi_user':
+            values['ipmi_user'] = a
+        elif o == '--ipmi_password':
+            values['ipmi_password'] = a
+        elif o == '--pidfile':
+            values['pidfile'] = a
+        elif o == '--flagfile':
+            flagfile = a
+        else:
+            print "unrecognized option '%s'" % o
+            print usage
+            sys.exit(1)
+
+    args = sys.argv[:1] + args
+    utils.default_flagfile(filename=flagfile, args=args)
+    argv = FLAGS(args)
+
+    if instance_id:
+        ctx = context.get_admin_context()
+        phy_host = db.phy_host_get_by_instance_id(ctx, instance_id)
+        if not phy_host:
+            print "physical host's instance ID == '%s' is not found" % instance_id
+            sys.exit(1)
+        if not values['ipmi_address']:
+            values['ipmi_address'] = phy_host.ipmi_address
+        if not values['terminal_port']:
+            values['terminal_port'] = str(phy_host.terminal_port)
+        if not values['ipmi_user']:
+            values['ipmi_user'] = phy_host.ipmi_user
+        if not values['ipmi_password']:
+            values['ipmi_password'] = phy_host.ipmi_password
+
+    print values
+    ok = True
+
+    for k,v in values.items():
+        if k == 'pidfile':
+            continue
+        if v is None:
+            print "'%s' is not specified" % k
+            ok = False
+
+    if not ok:
+        print usage
+        sys.exit(1)
+    
+    if not values['terminal_port']:
+        print "terminal_port is %s, exit" % values['terminal_port']
+        sys.exit(0)
+
+    exec_command(values)
+
+def exec_command(args):
+    TERMINAL = FLAGS.physical_term
+    CERTDIR = FLAGS.physical_term_cert_dir
+
+    commands = []
+    env = {}
+
+    ipmi_address = args['ipmi_address']
+    terminal_port = args['terminal_port']
+    ipmi_user = args['ipmi_user']
+    ipmi_password = args['ipmi_password']
+    pidfile = args.get('pidfile')
+
+    pwfile = make_password_file(ipmi_password)
+    cur_dir = os.getcwd()
+
+    commands.append(TERMINAL)
+    if CERTDIR:
+        commands.append("-c")
+        commands.append(CERTDIR)
+    else:
+        commands.append("-t")
+    commands.append("-p")
+    commands.append(terminal_port)
+    if pidfile:
+        commands.append("--background=%s" % pidfile)
+    else:
+        commands.append("--background")
+    commands.append("-s")
+    
+    uid = os.getuid()
+    gid = os.getgid()
+
+    ipmi_args = "/:" + str(uid) + ":" + str(gid) + ":HOME:/usr/bin/ipmitool "
+    ipmi_args += "-H" + ipmi_address +  " -I lanplus -U " + ipmi_user + " "
+    ipmi_args += "-f" + pwfile + " sol activate" 
+
+    commands.append(ipmi_args)
+
+    resp = subprocess.Popen(commands, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
+def make_password_file(password):
+    fd_path = tempfile.mkstemp()
+    f = open(fd_path[1], "w")
+    f.write(password)
+    f.close()
+    return fd_path[1]
+
+if __name__ == "__main__":
+    main()
+    
+""" end add by DOCOMO """

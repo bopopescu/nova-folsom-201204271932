@@ -1,0 +1,112 @@
+#!/usr/bin/env python
+
+# Copyright (c) 2012 NTT DOCOMO, INC. 
+# All Rights Reserved.
+#
+#    Licensed under the Apache License, Version 2.0 (the "License"); you may
+#    not use this file except in compliance with the License. You may obtain
+#    a copy of the License at
+#
+#         http://www.apache.org/licenses/LICENSE-2.0
+#
+#    Unless required by applicable law or agreed to in writing, software
+#    distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+#    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+#    License for the specific language governing permissions and limitations
+#    under the License.
+
+""" start add by NTT DOCOMO """
+
+import sys
+import getopt
+import os
+
+POSSIBLE_TOPDIR = os.path.normpath(os.path.join(os.path.abspath(sys.argv[0]),
+                                   os.pardir,
+                                   os.pardir))
+if os.path.exists(os.path.join(POSSIBLE_TOPDIR, 'nova', '__init__.py')):
+    sys.path.insert(0, POSSIBLE_TOPDIR)
+
+from nova import context
+from nova import db
+from nova import flags
+from nova import utils
+from nova import log as logging
+
+FLAGS = flags.FLAGS
+
+def main():
+    usage = """
+usage:
+            --phy_host_id=<physical host ID>
+            --mac_address=<MAC address in the form of xx:xx:xx:xx:xx:xx>
+            --datapath_id=<datapath ID>
+            --port_no=<port number>
+            """
+    opts, args = getopt.getopt(
+        sys.argv[1:],
+        "",
+        [ 'flagfile=',
+          'phy_host_id=',
+          'mac_address=',
+          'datapath_id=',
+          'port_no=',
+        ])
+
+    flagfile = '/etc/nova/nova.conf'
+    values = {
+        'phy_host_id': None,
+        'mac_address': None,
+        'datapath_id': None,
+        'port_no': None,
+    }
+
+    for o, a in opts:
+        if o == '--flagfile':
+            flagfile = a
+            continue
+
+        if o.startswith("--"):
+            o = o[2:]
+        if values.has_key(o):
+            values[o] = a
+        else:
+            print "unrecognized option '%s'" % o
+            print usage
+            sys.exit(1)
+    print 'values=%s' % values
+
+    ok = True
+
+    for k,v in values.items():
+        if v is None:
+            print "'%s' is not specified" % k
+            ok = False
+
+    if not ok:
+        print usage
+        sys.exit(1)
+    
+    values['datapath_id'] = values['datapath_id'].lower()
+    if not values['datapath_id'].startswith("0x"):
+        values['datapath_id'] = "0x" + values['datapath_id']
+
+    args = sys.argv[:1] + args
+    utils.default_flagfile(filename=flagfile, args=args)
+    FLAGS(args)
+    #logging.setup()
+    ctx = context.get_admin_context()
+
+    id = db.phy_interface_create(
+             ctx,
+             phy_host_id=values['phy_host_id'],
+             address=values['mac_address'],
+             datapath_id=values['datapath_id'],
+             port_no=values['port_no'])
+    print id
+
+if __name__ == "__main__":
+    main()
+
+""" end add by NTT DOCOMO """
+

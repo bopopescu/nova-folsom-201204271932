@@ -1,0 +1,86 @@
+#!/bin/bash
+
+# Copyright (c) 2012 NTT DOCOMO, INC. 
+# All Rights Reserved.
+#
+#    Licensed under the Apache License, Version 2.0 (the "License"); you may
+#    not use this file except in compliance with the License. You may obtain
+#    a copy of the License at
+#
+#         http://www.apache.org/licenses/LICENSE-2.0
+#
+#    Unless required by applicable law or agreed to in writing, software
+#    distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+#    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+#    License for the specific language governing permissions and limitations
+#    under the License.
+
+### start add by NTT DOCOMO ###
+
+ADDRESS=$1
+PORT=$2
+IQN=$3
+LUN=$4
+IMAGE=$5
+PXE_CONFIG_PATH=$6
+ROOT_MB=${7:-"20480"}
+SWAP_MB=${8:-"1024"}
+
+DEV="/dev/disk/by-path/ip-$ADDRESS:$PORT-iscsi-$IQN-lun-$LUN"
+
+ROOT_PART=$DEV-part1
+SWAP_PART=$DEV-part2
+
+iscsiadm -m discovery -t st -p "$ADDRESS:$PORT"
+if [ $? -ne 0 ]; then
+	echo "failed to iSCSI discovery" 2>&1
+	exit 1
+fi
+iscsiadm -m node -p "$ADDRESS:$PORT" -T "$IQN" --login
+if [ $? -ne 0 ]; then
+	echo "failed to iSCSI login" 2>&1
+	exit 1
+fi
+function logout_iscsi() {
+	iscsiadm -m node -p "$ADDRESS:$PORT" -T "$IQN" --logout
+}
+trap logout_iscsi EXIT
+
+
+sleep 3
+if ! [ -b "$DEV" ]; then
+	echo "$DEV is not a block special file" 2>&1
+	exit 1
+fi
+
+function make_partitions() {
+        local dev=$1
+        echo 'o,w' | tr ',' '\n' | fdisk "$dev" >/dev/null 2>&1
+        echo "n,p,1,,+${ROOT_MB}MB,t,1,82,w" | tr ',' '\n' | fdisk "$dev" >/dev/null 2>&1
+        echo "n,p,2,,+${SWAP_MB}MB,t,2,83,w" | tr ',' '\n' | fdisk "$dev" >/dev/null 2>&1
+        echo 'a,2,w' | tr ',' '\n' | fdisk "$dev" >/dev/null 2>&1
+        sleep 3
+}
+
+make_partitions "$DEV"
+
+if ! [ -b "$ROOT_PART" ]; then
+	echo "device for root '$ROOT_PART' not found" 2>&1
+	exit 1
+fi
+if ! [ -b "$SWAP_PART" ]; then
+	echo "device for swap '$SWAP_PART' not found" 2>&1
+	exit 1
+fi
+
+dd if="$IMAGE" of="$ROOT_PART" bs=1M
+mkswap -L swap1 "$SWAP_PART"
+
+root_uuid=$( blkid "$ROOT_PART" | tr " " "\n" |grep ^UUID | sed -e 's/UUID="\(.*\)"/\1/' )
+sed -e "s/\${ROOT}/UUID=${root_uuid}/g" -i "$PXE_CONFIG_PATH"
+sed -e "s/^default .*$/default boot/" -i "$PXE_CONFIG_PATH"
+
+echo done | nc "$ADDRESS" 10000
+exit 0
+
+### end add by NTT DOCOMO ###

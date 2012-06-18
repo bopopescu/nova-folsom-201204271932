@@ -1,0 +1,219 @@
+
+Reading 'baremetal-instance-creation.txt' may make this document easy to understand.
+
+
+INSTALLATION PROCEDURE
+
+This procedure is for Ubuntu 12.04 x86_64.
+
+
+Packages
+=====
+
+* dnsmasq (PXE server for baremetal hosts)
+* syslinux (bootloader for PXE)
+* ipmitool (operate IPMI)
+* qemu-kvm (only for qemu-img)
+* open-iscsi (connect to iSCSI target at berametal hosts)
+* busybox (used in deployment ramdisk)
+* tgt (used in deployment ramdisk)
+
+Example:
+
+	$ sudo apt-get install dnsmasq syslinux ipmitool qemu-kvm open-iscsi
+	$ sudo apt-get install busybox tgt
+
+
+Ramdisk for Deployment
+=====
+
+Use phy-mkinitrd.sh.
+
+	$ cd phy-initrd-builder2
+	$ ./phy-mkinitrd.sh <ramdisk output path> <kernel version>
+
+Example:
+
+	$ cd phy-initrd-builder2
+	$ ./phy-mkinitrd.sh /tmp/deploy-ramdisk.img 3.2.0-24-generic
+
+Register the kernel and the ramdisk to Glance.
+
+Example:
+
+	$ glance add name="baremetal deployment ramdisk" is_public=true container_format=ari disk_format=ari < /tmp/deploy-ramdisk.img
+	$ glance add name="baremetal deployment kernel" is_public=true container_format=aki disk_format=aki < /boot/vmlinuz-3.2.0-24-generic
+
+
+ShellInABox
+=====
+Baremetal nova-compute uses [ShellInABox](http://code.google.com/p/shellinabox/) so that users can access baremetal host's console through web browsers.
+
+Build from source and install:
+
+	$ sudo apt-get install gcc make
+	$ tar xzf shellinabox-2.10.tar.gz
+	$ cd shellinabox-2.10
+	$ ./configure
+	$ sudo make install
+
+
+PXE Boot Server
+=====
+
+Prepare TFTP root directory.
+
+	$ sudo mkdir /tftpboot
+	$ sudo cp /usr/lib/syslinux/pxelinux.0 /tftpboot/
+	$ sudo mkdir /tftpboot/pxelinux.cfg
+
+Start dnsmasq.
+Example: start dnsmasq on eth1 with PXE and TFTP enabled.
+
+	$ sudo dnsmasq --conf-file= --port=0 --enable-tftp --tftp-root=/tftpboot --dhcp-boot=pxelinux.0 --bind-interfaces --pid-file=/dnsmasq.pid --interface=eth1 --dhcp-range=192.168.175.100,192.168.175.254
+
+
+Nova Database
+=====
+
+Create tables in nova database. All DDLs are in baremetal.mysql. 
+
+example:
+
+	$ cat baremetal.mysql | mysql nova -p
+
+
+Nova Directorys
+======
+
+	$ sudo mkdir /var/lib/nova/phy
+	$ sudo mkdir /var/lib/nova/phy/console
+	$ sudo mkdir /var/lib/nova/phy/dnsmasq
+
+
+Nova Flags 
+=====
+
+Set these flags in nova.conf
+
+	# baremetal compute driver
+	compute_driver = nova.virt.phy.driver.PhysicalConnection
+	# TFTP root
+	physical_tftp_root = /tftpboot
+	# path to shellinaboxd
+	physical_term = /usr/local/bin/shellinaboxd
+	# deployment kernel & ramdisk image id
+	physical_deploy_kernel = b94ef367-19da-4f88-a66c-5c76cf8e6cbc
+	physical_deploy_ramdisk = 80964bab-4a4b-48ff-aec4-cf5a224ac942
+
+
+Create Baremetal Instance Type
+=====
+
+First, create an instance type in the normal way.
+
+Example:
+
+	$ nova-manage instance_type create --name=bm.small --cpu=2 --memory=4096 --local_gb=64 --flavor=6 --swap=1024 --rxtx_factor=1
+	(about --flavor, see 'How to choose the value for flavor' section below)
+
+Next, set baremetal extra_spec to the instance type
+
+	$ phy_flavor_set_physical --flavor=bm.small
+
+How to choose the value for flavor:
+-----
+
+Run nova-manage instance_type list, find the maximum FlavorID in output. Use the maximum FlavorID+1 for new instance_type.
+
+	$ nova-manage instance_type list
+	m1.medium: Memory: 4096MB, VCPUS: 2, Root: 10GB, Ephemeral: 40Gb, FlavorID: 3, Swap: 0MB, RXTX Factor: 1.0
+	m1.small: Memory: 2048MB, VCPUS: 1, Root: 10GB, Ephemeral: 20Gb, FlavorID: 2, Swap: 0MB, RXTX Factor: 1.0
+	m1.large: Memory: 8192MB, VCPUS: 4, Root: 10GB, Ephemeral: 80Gb, FlavorID: 4, Swap: 0MB, RXTX Factor: 1.0
+	m1.tiny: Memory: 512MB, VCPUS: 1, Root: 0GB, Ephemeral: 0Gb, FlavorID: 1, Swap: 0MB, RXTX Factor: 1.0
+	m1.xlarge: Memory: 16384MB, VCPUS: 8, Root: 10GB, Ephemeral: 160Gb, FlavorID: 5, Swap: 0MB, RXTX Factor: 1.0
+
+In the example above, the maximum Flavor ID is 5, so use 6.
+
+
+Start Processes
+======
+
+	(Currently, you might have trouble if run processes as a user other than the superuser...)
+	$ sudo phy_deploy_server &
+	$ sudo nova-scheduler &
+	$ sudo nova-compute &
+
+
+Register baremetal host and NIC
+=====
+
+First, register a baremetal host. Next, register the baremetal host's NICs.
+
+To register baremetal host, use phy_host_create.
+phy_host_create takes the parameters listed below.
+
+* --service_host: baremetal nova-compute's hostname
+* --cpus=: number of CPU cores
+* --memory_mb: memory size in MegaBytes
+* --local_gb: local disk size in GigaBytes
+* --ipmi_address: IPMI address
+* --ipmi_user: IPMI username
+* --ipmi_password: IPMI password
+* --pxe_mac: PXE NIC's MAC address
+* --terminal_port: TCP port for ShellInABox. Each host must use unique TCP port. If you do not need console access, use 0
+
+example:
+
+	$ phy_host_create --service_host=physical --cpus=4 --memory_mb=6144 --local_gb=64 --ipmi_address=172.27.2.116 --ipmi_user=test --ipmi_password=password --pxe_mac=98:4b:e1:67:9a:4c --terminal_port=8000
+
+To velify host registration, run phy_host_list:
+
+	$ phy_host_list
+	ID        SERVICE_ID    INSTANCE_ID   CPUS    Memory    Disk      IPMI_Address      IPMI_User         TERMINAL_PORT  PXE_MAC             PXE_VLAN
+	1         6             None          4       6144      64        172.27.2.116      test              8000           98:4b:e1:67:9a:4c   None 
+
+To register NIC, use phy_interface_create.
+phy_interface_create takes the parameters listed below.
+
+* --phy_host_id: ID of the baremetal host owns this NIC (the first column of phy_host_list)
+* --mac_address: this NIC's MAC addresss in the form of xx:xx:xx:xx:xx:xx
+* --datapath_id: datapath ID of OpenFlow switch this NIC is connected to
+* --port_no: OpenFlow port number this NIC is connected to
+
+(--datapath_id and --port_no are used for network isolation. It is OK to put 0, if you do not have OpenFlow switch.)
+
+example:
+
+	$ phy_interface_create --phy_host_id=1 --mac_address=98:4b:e1:67:9a:4e --datapath_id=0x123abc --port_no=24
+
+To verify NIC registration, run phy_interface_list:
+
+	$ phy_interface_list
+	ID        PHY_HOST_ID       MAC_ADDRESS         DATAPATH_ID       PORT_NO
+	1         1                 98:4b:e1:67:9a:4e   0x123abc          24  
+
+
+Run Instance
+=====
+
+Run instance using a baremetal instance type.
+Make sure to use kernel, ramdisk and image that support baremetal hardware (i.e contain drivers for baremetal hardware ).
+
+Only partiton images are currently supported. See 'How to create image' section.
+
+Example:
+	euca-run-instances -t bm.small --kernel aki-AAA --ramdisk ari-BBB ami-CCC
+
+
+How to create image:
+-----
+	
+Example: create a partition image from ubuntu cloud images' Precise tarball
+
+	$ wget http://cloud-images.ubuntu.com/precise/current/precise-server-cloudimg-amd64-root.tar.gz
+	$ dd if=/dev/zero of=u.img bs=1M count=0 seek=1024
+	$ mkfs -F -t ext4 u.img
+	$ sudo mount -o loop u.img /mnt/
+	$ sudo tar -C /mnt -xzf ~/precise-server-cloudimg-amd64-root.tar.gz
+	$ sudo umount /mnt
