@@ -1,4 +1,5 @@
 
+
 	CREATE TABLE `phy_hosts` (
 	  `created_at` datetime DEFAULT NULL,
 	  `updated_at` datetime DEFAULT NULL,

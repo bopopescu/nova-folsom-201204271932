@@ -1,3 +1,4 @@
+
 # vim: tabstop=4 shiftwidth=4 softtabstop=4
 
 # Copyright (c) 2012 NTT DOCOMO, INC. 
@@ -27,7 +28,6 @@ LOG = logging.getLogger("phy.pxe")
 
 FLAGS = flags.FLAGS
 
-
 def _execute(*cmd, **kwargs):
     """Wrapper around utils._execute for fake_network."""
     if FLAGS.fake_network:
@@ -35,7 +35,6 @@ def _execute(*cmd, **kwargs):
         return 'fake', 0
     else:
         return utils.execute(*cmd, **kwargs)
-
 
 def start_pxe_server(interface, tftp_root, client_address, pid_path, lease_path):
     _execute('dnsmasq',

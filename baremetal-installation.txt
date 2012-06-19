@@ -1,4 +1,3 @@
-
 Reading 'baremetal-instance-creation.txt' may make this document easy to understand.
 
 
