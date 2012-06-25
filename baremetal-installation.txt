@@ -116,7 +116,7 @@ First, create an instance type in the normal way.
 
 Example:
 
-	$ nova-manage instance_type create --name=bm.small --cpu=2 --memory=4096 --local_gb=64 --flavor=6 --swap=1024 --rxtx_factor=1
+	$ nova-manage instance_type create --name=bm.small --cpu=2 --memory=4096 --root_gb=10 --ephemeral_gb=20 --flavor=6 --swap=1024 --rxtx_factor=1
 	(about --flavor, see 'How to choose the value for flavor' section below)
 
 Next, set baremetal extra_spec to the instance type
@@ -147,7 +147,7 @@ Start Processes
 	$ sudo nova-compute &
 
 
-Register baremetal host and NIC
+Register Baremetal Host and NIC
 =====
 
 First, register a baremetal host. Next, register the baremetal host's NICs.
@@ -163,13 +163,13 @@ phy_host_create takes the parameters listed below.
 * --ipmi_user: IPMI username
 * --ipmi_password: IPMI password
 * --pxe_mac: PXE NIC's MAC address
-* --terminal_port: TCP port for ShellInABox. Each host must use unique TCP port. If you do not need console access, use 0
+* --terminal_port: TCP port for ShellInABox. Each host must use unique TCP port. If you do not need console access, use 0.
 
-example:
+Example:
 
 	$ phy_host_create --service_host=physical --cpus=4 --memory_mb=6144 --local_gb=64 --ipmi_address=172.27.2.116 --ipmi_user=test --ipmi_password=password --pxe_mac=98:4b:e1:67:9a:4c --terminal_port=8000
 
-To velify host registration, run phy_host_list:
+To verify host registration, run phy_host_list:
 
 	$ phy_host_list
 	ID        SERVICE_ID    INSTANCE_ID   CPUS    Memory    Disk      IPMI_Address      IPMI_User         TERMINAL_PORT  PXE_MAC             PXE_VLAN
@@ -179,13 +179,13 @@ To register NIC, use phy_interface_create.
 phy_interface_create takes the parameters listed below.
 
 * --phy_host_id: ID of the baremetal host owns this NIC (the first column of phy_host_list)
-* --mac_address: this NIC's MAC addresss in the form of xx:xx:xx:xx:xx:xx
+* --mac_address: this NIC's MAC address in the form of xx:xx:xx:xx:xx:xx
 * --datapath_id: datapath ID of OpenFlow switch this NIC is connected to
 * --port_no: OpenFlow port number this NIC is connected to
 
 (--datapath_id and --port_no are used for network isolation. It is OK to put 0, if you do not have OpenFlow switch.)
 
-example:
+Example:
 
 	$ phy_interface_create --phy_host_id=1 --mac_address=98:4b:e1:67:9a:4e --datapath_id=0x123abc --port_no=24
 
@@ -202,13 +202,13 @@ Run Instance
 Run instance using a baremetal instance type.
 Make sure to use kernel, ramdisk and image that support baremetal hardware (i.e contain drivers for baremetal hardware ).
 
-Only partiton images are currently supported. See 'How to create image' section.
+Only partition images are currently supported. See 'How to create an image' section.
 
 Example:
 	euca-run-instances -t bm.small --kernel aki-AAA --ramdisk ari-BBB ami-CCC
 
 
-How to create image:
+How to create an image:
 -----
 	
 Example: create a partition image from ubuntu cloud images' Precise tarball
@@ -218,4 +218,8 @@ Example: create a partition image from ubuntu cloud images' Precise tarball
 	$ mkfs -F -t ext4 u.img
 	$ sudo mount -o loop u.img /mnt/
 	$ sudo tar -C /mnt -xzf ~/precise-server-cloudimg-amd64-root.tar.gz
+	$ sudo rm /mnt/etc/resolv.conf 
+	$ sudo echo nameserver 8.8.8.8 >/mnt/etc/resolv.conf
+	$ sudo chroot /mnt apt-get install linux-image-3.2.0-24-generic vlan open-iscsi
+	$ ln -sf ../run/resolvconf/resolv.conf /mnt/etc/resolv.conf
 	$ sudo umount /mnt
