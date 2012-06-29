@@ -22,6 +22,7 @@ from nova.virt.vif import VIFDriver
 
 from nova import context
 from nova import db
+from nova.virt.baremetal import bmdb
 from nova import exception
 
 FLAGS = flags.FLAGS
@@ -39,13 +40,13 @@ class PhyVIFDriver(VIFDriver):
     def plug(self, instance, network, mapping):
         LOG.debug("plug: %s", locals())
         ctx = context.get_admin_context()
-        ph = db.phy_host_get_by_instance_id(ctx, instance.id)
+        ph = bmdb.phy_host_get_by_instance_id(ctx, instance.id)
         if not ph:
             return
-        pifs = db.phy_interface_get_all_by_phy_host_id(ctx, ph.id)
+        pifs = bmdb.phy_interface_get_all_by_phy_host_id(ctx, ph.id)
         for pif in pifs:
             if not pif.vif_uuid:
-                db.phy_interface_set_vif_uuid(ctx, pif.id, mapping['vif_uuid'])
+                bmdb.phy_interface_set_vif_uuid(ctx, pif.id, mapping['vif_uuid'])
                 LOG.debug("pif:%s is plugged (vif_uuid=%s)", pif.id, mapping['vif_uuid'])
                 self._after_plug(instance, network, mapping, pif)
                 return
@@ -54,9 +55,9 @@ class PhyVIFDriver(VIFDriver):
     def unplug(self, instance, network, mapping):
         LOG.debug("unplug: %s", locals())
         ctx = context.get_admin_context()
-        pif = db.phy_interface_get_by_vif_uuid(ctx, mapping['vif_uuid'])
+        pif = bmdb.phy_interface_get_by_vif_uuid(ctx, mapping['vif_uuid'])
         if pif:
-            db.phy_interface_set_vif_uuid(ctx, pif.id, None)
+            bmdb.phy_interface_set_vif_uuid(ctx, pif.id, None)
             LOG.debug("pif:%s is unplugged (vif_uuid=%s)", pif.id, mapping['vif_uuid'])
             self._after_unplug(instance, network, mapping, pif)
         else:

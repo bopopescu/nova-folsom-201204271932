@@ -33,6 +33,11 @@ import tempfile
 FLAGS = flags.FLAGS
 LOG = logging.getLogger('nova.virt.phy.ipmi')
 
+def get_power_manager(**kwargs):
+    return Ipmi(**kwargs)
+
+def get_power_manager_dummy(**kwargs):
+    return DummyIpmi(**kwargs)
 
 def make_password_file(password):
     fd_path = tempfile.mkstemp()
@@ -58,6 +63,13 @@ def exec_ipmi(command,host,user,password,interface="lanplus"):
     out,err = utils.execute(*args, attempts=3)
     os.unlink(pwfile)
     return (out,err)
+
+
+def _unlink_without_raise(path):
+    try:
+        os.unlink(path)
+    except OSError:
+        LOG.exception("failed to unlink %s" % path)
     
 
 class IpmiError(Exception):
@@ -71,7 +83,7 @@ class IpmiError(Exception):
 
 class Ipmi:
 
-    def __init__(self,address,user,password,interface="lanplus"):
+    def __init__(self,address=None,user=None,password=None,interface="lanplus"):
         if address == None:
             raise IpmiError, (-1, "address is None")
         if user == None:
@@ -94,8 +106,21 @@ class Ipmi:
         LOG.debug("out: %s", out)
         LOG.debug("err: %s", err)
         return out, err
+    
+    def activate_node(self):
+        state = self._power_on()
+        return state
+    
+    def reboot_node(self):
+        self._power_off()
+        state = self._power_on()
+        return state
 
-    def power_on(self):
+    def deactivate_node(self):
+        state = self._power_off()
+        return state
+    
+    def _power_on(self):
         try:
             self._exec_ipmi("power on")
         except Exception as ex:
@@ -109,7 +134,7 @@ class Ipmi:
         except Exception as ex:
             LOG.exception("power_off failed", ex)
 
-    def power_off(self):
+    def _power_off(self):
         count = 0
         while not self.is_power_off():
             count += 1
@@ -130,6 +155,38 @@ class Ipmi:
     def is_power_on(self):
         r = self._power_status()
         return r == "Chassis Power is on\n"
+ 
+    def start_console(self, port, host_id):
+        pidfile = self._console_pidfile(host_id)
+        
+        if FLAGS.physical_console:
+            (out,err) = utils.execute(FLAGS.physical_console,
+                                '--ipmi_address=%s' % self.host,
+                                '--ipmi_user=%s' % self.user,
+                                '--ipmi_password=%s' % self.password,
+                                '--terminal_port=%s' % port,
+                                '--pidfile=%s' % pidfile,
+                                run_as_root=True)
+            LOG.debug("physical_console: out=%s", out)
+            LOG.debug("physical_console: err=%s", err)
+    
+    def stop_console(self, host_id):
+        console_pid = self._console_pid(host_id)
+        if console_pid:
+            utils.execute('kill', str(console_pid), run_as_root=True, check_exit_code=[0,1])
+        _unlink_without_raise(self._console_pidfile(host_id))
+            
+    def _console_pidfile(self, host_id):
+        pidfile = "%s/%s.pid" % (FLAGS.physical_console_pid_dir,host_id)
+        return pidfile
+
+    def _console_pid(self, host_id):
+        pidfile = self._console_pidfile(host_id)
+        if os.path.exists(pidfile):
+            with open(pidfile, 'r') as f:
+                return int(f.read())
+        return None
+
 
 
 class DummyIpmi:
@@ -137,10 +194,15 @@ class DummyIpmi:
     def __init__(self):
         pass
 
-    def power_on(self):
+    def activate_node(self):
+        self._power_off()
+        state = self.power_on()
+        return state
+
+    def _power_on(self):
         return physical_states.ACTIVE
 
-    def power_off(self):
+    def _power_off(self):
         return physical_states.DELETED
 
     def is_power_off(self):
@@ -148,5 +210,11 @@ class DummyIpmi:
 
     def is_power_on(self):
         return True
+
+    def start_console(self, port, host_id):
+        pass
+
+    def stop_console(self, host_id):
+        pass
 
 """ end add by NTT DOCOMO """

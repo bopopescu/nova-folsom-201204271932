@@ -213,8 +213,8 @@ class QuantumFilterFirewall(FirewallDriver):
             LOG.debug("handling network=%s mapping=%s", network, mapping)
             info = _from_network_info(network, mapping, tenant_id)
             if not info:
-               LOG.debug("skip this network_info")
-               continue
+                LOG.debug("skip this network_info")
+                continue
             vifinfo_uuid,network_uuid,ips = info
             filter_bodys = []
             for ip in ips:
@@ -306,8 +306,8 @@ class QuantumFilterFirewall(FirewallDriver):
             LOG.debug("handling network=%s mapping=%s", network, mapping)
             info = _from_network_info(network, mapping, tenant_id)
             if not info:
-               LOG.debug("skip this network_info")
-               continue
+                LOG.debug("skip this network_info")
+                continue
             vifinfo_uuid,network_uuid,ips = info
             mac = mapping.get('mac')
             LOG.debug("mac=%s", mac)

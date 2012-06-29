@@ -29,6 +29,7 @@ if os.path.exists(os.path.join(POSSIBLE_TOPDIR, 'nova', '__init__.py')):
 
 from nova import context
 from nova import db
+from nova.virt.baremetal import bmdb
 from nova import flags
 from nova import utils
 from nova import log as logging
@@ -80,13 +81,13 @@ def main():
 
     service = db.service_get_by_host_and_topic(ctx, service_host, "compute")
     if not service:
-        print "a service whose host is '%s' is not found" % host
+        print "a service whose host is '%s' is not found" % service_host
         sys.exit(1)
     service_id = service["id"]
    
-    id = db.phy_pxe_ip_create(ctx, address, server_address, service_id)
+    id = bmdb.phy_pxe_ip_create(ctx, address, server_address, service_id)
     print "id=%s" % id
-    ip_ref = db.phy_pxe_ip_get(ctx, id)
+    ip_ref = bmdb.phy_pxe_ip_get(ctx, id)
     print "address=%s" % ip_ref.address
     print "server_address=%s" % ip_ref.server_address
 

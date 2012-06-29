@@ -35,6 +35,7 @@ if os.path.exists(os.path.join(POSSIBLE_TOPDIR, '.venv')):
 
 from nova import context
 from nova import db
+from nova.virt.baremetal import bmdb
 from nova import flags
 from nova.openstack.common import cfg
 from nova import utils
@@ -42,7 +43,7 @@ from nova import log as logging
 
 phy_console_opts = [
     cfg.StrOpt('physical_term',
-               default='/nova-2011.3/shellinabox/shellinaboxd',
+               default='shellinaboxd',
                help='path to physical terminal program'),
     cfg.StrOpt('physical_term_cert_dir',
                default=None,
@@ -111,7 +112,7 @@ usage:
 
     if instance_id:
         ctx = context.get_admin_context()
-        phy_host = db.phy_host_get_by_instance_id(ctx, instance_id)
+        phy_host = bmdb.phy_host_get_by_instance_id(ctx, instance_id)
         if not phy_host:
             print "physical host's instance ID == '%s' is not found" % instance_id
             sys.exit(1)

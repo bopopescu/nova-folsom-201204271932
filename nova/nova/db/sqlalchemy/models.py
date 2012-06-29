@@ -995,84 +995,6 @@ class InstanceFault(BASE, NovaBase):
     message = Column(String(255))
     details = Column(Text)
 
-# Copyright (c) 2012 NTT DOCOMO, INC. 
-# All Rights Reserved.
-#
-#    Licensed under the Apache License, Version 2.0 (the "License"); you may
-#    not use this file except in compliance with the License. You may obtain
-#    a copy of the License at
-#
-#         http://www.apache.org/licenses/LICENSE-2.0
-#
-#    Unless required by applicable law or agreed to in writing, software
-#    distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
-#    WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
-#    License for the specific language governing permissions and limitations
-#    under the License.
-
-""" start add by NTT DOCOMO """
-
-class PhyHost(BASE, NovaBase):
-    """Represents a running physical compute service on a host."""
-
-    __tablename__ = 'phy_hosts'
-    id = Column(Integer, primary_key=True)
-    service_id = Column(Integer, ForeignKey('services.id'), nullable=True)
-    service = relationship(Service,
-                           backref=backref('phy_host'),
-                           foreign_keys=service_id,
-                           primaryjoin='and_('
-                                'PhyHost.service_id == Service.id,'
-                                'PhyHost.deleted == False)')
-    instance_id = Column(Integer, ForeignKey('instances.id'), nullable=True)
-    instance = relationship(Instance,
-                            backref=backref('phy_host'),
-                            foreign_keys=instance_id,
-                            primaryjoin='and_('
-                                'PhyHost.instance_id == Instance.id,'
-                                'PhyHost.deleted == False)')
-    cpus = Column(Integer)
-    memory_mb = Column(Integer)
-    local_gb = Column(Integer)
-    ipmi_address = Column(Text)
-    ipmi_user = Column(Text)
-    ipmi_password = Column(Text)
-    pxe_mac_address = Column(Text)
-    registration_status = Column(String(16))
-    task_state = Column(String(255))
-    pxe_vlan_id = Column(Integer)
-    terminal_port = Column(Integer)
-
-
-class PhyPxeIp(BASE, NovaBase):
-    __tablename__ = 'phy_pxe_ips'
-    id = Column(Integer, primary_key=True)
-    address = Column(String(255))
-    server_address = Column(String(255))
-    service_id = Column(Integer, ForeignKey('services.id'), nullable=False)
-    phy_host_id = Column(Integer, ForeignKey('phy_hosts.id'), nullable=True)
-
-
-class PhyInterface(BASE, NovaBase):
-    __tablename__ = 'phy_interfaces'
-    id = Column(Integer, primary_key=True)
-    phy_host_id = Column(Integer)
-    address = Column(String(255), unique=True)
-    datapath_id = Column(String(255))
-    port_no = Column(Integer)
-    vif_uuid = Column(String(36))
-
-
-class PhyDeployment(BASE, NovaBase):
-    __tablename__ = 'phy_deployments'
-    id = Column(Integer, primary_key=True)
-    key = Column(String(255))
-    image_path = Column(String(255))
-    pxe_config_path = Column(String(255))
-    root_mb = Column(Integer)
-    swap_mb = Column(Integer)
-
-""" end add by NTT DOCOMO """
 
 def register_models():
     """Register Models and create metadata.
@@ -1115,12 +1037,6 @@ def register_models():
               VolumeMetadata,
               VolumeTypeExtraSpecs,
               VolumeTypes,
-### start add by NTT DOCOMO ###
-              PhyHost,
-              PhyPxeIp,
-              PhyInterface,
-              PhyDeployment,
-### end add by NTT DOCOMO ### 
               )
     engine = create_engine(FLAGS.sql_connection, echo=False)
     for model in models:

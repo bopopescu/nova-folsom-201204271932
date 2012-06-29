@@ -28,6 +28,7 @@ if os.path.exists(os.path.join(POSSIBLE_TOPDIR, 'nova', '__init__.py')):
 
 from nova import context
 from nova import db
+from nova.virt.baremetal import bmdb
 from nova import flags
 from nova import utils
 
@@ -49,7 +50,7 @@ def main():
                 _('SERVICE_ID'),
                 _('PHY_HOST_ID'))
     ctxt = context.get_admin_context()
-    for ip in db.phy_pxe_ip_get_all(ctxt):
+    for ip in bmdb.phy_pxe_ip_get_all(ctxt):
         print fmt % (ip.id, ip.address, ip.server_address, ip.service_id, ip.phy_host_id)
     print
 

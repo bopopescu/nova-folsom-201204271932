@@ -29,6 +29,7 @@ if os.path.exists(os.path.join(POSSIBLE_TOPDIR, 'nova', '__init__.py')):
 
 from nova import context
 from nova import db
+from nova.virt.baremetal import bmdb
 from nova import flags
 from nova import utils
 from nova import log as logging
@@ -134,7 +135,7 @@ usage:
         print usage
         sys.exit(1)
 
-    r = db.phy_host_create(ctx, values)
+    r = bmdb.phy_host_create(ctx, values)
     print r.id
 
 if __name__ == "__main__":

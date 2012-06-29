@@ -22,6 +22,7 @@ import pprint
 
 from nova import context
 from nova import db
+from nova.virt.baremetal import bmdb
 from nova import flags
 from nova import log as logging
 from nova import utils
@@ -107,11 +108,11 @@ def _from_phy_host(instance_id, tenant_id):
         LOG.debug('vifinfo_uuid=%s', vifinfo_uuid)
         if not vifinfo_uuid:
             continue
-        fixed_ip = db.fixed_ip_get_by_virtual_interface(ctx, vif.id)
-        if not fixed_ip:
+        fixed_ips = db.fixed_ips_by_virtual_interface(ctx, vif.id)
+        if not fixed_ips:
             LOG.warn('fixed_ip is None')
             continue
-        addrs = [ fip.address for fip in fixed_ip ]
+        addrs = [ fip.address for fip in fixed_ips ]
         info.append( (vifinfo_uuid, network_uuid, mac, addrs) )
     LOG.debug('_from_phy_host(instance_id=%s,tenant_id=%s) end: info=%s', instance_id, tenant_id, info)
     return info
@@ -171,7 +172,7 @@ def _fullbuild(conn):
         tenants_networks_filters[tenant_id][network_id].extend(filter_bodys)
     
     ctxt = context.get_admin_context()
-    hosts = db.phy_host_get_all(ctxt)
+    hosts = bmdb.phy_host_get_all(ctxt)
     for t in hosts:
         LOG.debug('to.id=%s', t.id)
         LOG.debug('to=%s', t.__dict__)

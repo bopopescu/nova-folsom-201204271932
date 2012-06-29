@@ -31,8 +31,8 @@ from nova import utils
 
 """ start add by NTT DOCOMO """
 import pprint
-LOG = logging.getLogger(__name__)
 PP=pprint.PrettyPrinter(indent=4)
+from nova.virt.baremetal import bmdb
 from nova import context as ctx
 from nova.scheduler import host_manager
 import operator
@@ -115,7 +115,7 @@ class BaremetalHostState(host_manager.HostState):
         """Update information about a host from its compute_node info."""
         
         if self.physical_compute:
-            phy_hosts = db.phy_host_get_all_by_service_id(context, compute['service_id'])
+            phy_hosts = bmdb.phy_host_get_all_by_service_id(context, compute['service_id'])
             LOG.debug("point0.1: self=%s, phy_hosts=%s", str(self), PP.pformat(phy_hosts))
             
             for host in phy_hosts:
@@ -167,7 +167,7 @@ class BaremetalHostState(host_manager.HostState):
             context = ctx.get_admin_context()
             instance_id = instance.get('id', None)
             if instance_id:
-                phy_host = db.phy_host_get_by_instance_id(context, instance['id'])
+                phy_host = bmdb.phy_host_get_by_instance_id(context, instance['id'])
             else:
                 phy_host = None    
                 

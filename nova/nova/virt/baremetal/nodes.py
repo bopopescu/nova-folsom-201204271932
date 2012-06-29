@@ -15,28 +15,41 @@
 #    under the License.
 #
 
-from nova.virt.baremetal import tilera
-from nova.virt.baremetal import fake
-from nova.openstack.common import cfg
-from nova import flags
 from nova import exception
+from nova import flags
+from nova.openstack.common import cfg
+from nova.virt.baremetal import fake, tilera
+from nova.virt.phy import pxe, ipmi
 
 FLAGS = flags.FLAGS
 
 baremetal_opts = [
     cfg.StrOpt('baremetal_driver',
                default='tilera',
-               help='Bare-metal driver runs on')
+               help='Bare-metal driver runs on'),
+    cfg.StrOpt('power_manager',
+               default='ipmi',
+               help='power management method'),
     ]
 
 FLAGS.register_opts(baremetal_opts)
 
-
 def get_baremetal_nodes():
     d = FLAGS.baremetal_driver
-    if  d == 'tilera':
+    if d == 'tilera':
         return tilera.get_baremetal_nodes()
+    elif d == 'pxe':
+        return pxe.get_baremetal_nodes()
     elif d == 'fake':
         return fake.get_baremetal_nodes()
     else:
-        raise exception.Error(_("Unknown baremetal driver %(d)s"))
+        raise exception.NovaException(_("Unknown baremetal driver %(d)s"))
+
+def get_power_manager(**kwargs):
+    d = FLAGS.power_manager
+    if d == 'ipmi':
+        return ipmi.get_power_manager(**kwargs)
+    if d == 'dummy':
+        return ipmi.get_power_manager_dummy(**kwargs)
+    else:
+        raise exception.NovaException(_("Unknown power manager %(d)s"))

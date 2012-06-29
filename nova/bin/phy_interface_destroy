@@ -29,6 +29,7 @@ if os.path.exists(os.path.join(POSSIBLE_TOPDIR, 'nova', '__init__.py')):
 
 from nova import context
 from nova import db
+from nova.virt.baremetal import bmdb
 from nova import flags
 from nova import utils
 
@@ -63,7 +64,7 @@ def main():
     argv = FLAGS(args)
     ctx = context.get_admin_context()
 
-    db.phy_interface_destroy(ctx, id)
+    bmdb.phy_interface_destroy(ctx, id)
 
 
 if __name__ == "__main__":
