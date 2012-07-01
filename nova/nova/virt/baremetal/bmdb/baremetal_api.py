@@ -35,7 +35,7 @@ these objects be simple dictionaries.
 :db_backend:  string to lookup in the list of LazyPluggable backends.
               `sqlalchemy` is the only supported backend right now.
 
-:sql_connection:  string specifying the sqlalchemy connection to use, like:
+:baremetal_sql_connection:  string specifying the sqlalchemy connection to use, like:
                   `sqlite:///var/lib/nova/nova.sqlite`.
 
 """
@@ -56,7 +56,7 @@ FLAGS = flags.FLAGS
 FLAGS.register_opts(db_opts)
 
 IMPL = utils.LazyPluggable('baremetal_db_backend',
-                           sqlalchemy='nova.db.sqlalchemy.baremetal_api')
+                           sqlalchemy='nova.virt.baremetal.bmdb.sqlalchemy.baremetal_api')
 
 
 # Copyright (c) 2012 NTT DOCOMO, INC. 

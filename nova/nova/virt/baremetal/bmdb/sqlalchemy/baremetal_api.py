@@ -19,22 +19,12 @@
 
 """Implementation of SQLAlchemy backend."""
 
-import datetime
-import functools
-import re
-import warnings
-
-from nova import block_device
-from nova import db
 from nova import exception
 from nova import flags
 from nova import utils
 from nova import log as logging
-from nova.compute import aggregate_states
-from nova.compute import vm_states
-from nova.db.sqlalchemy import models
-from nova.db.sqlalchemy import baremetal_models
-from nova.db.sqlalchemy.baremetal_session import get_session
+from nova.virt.baremetal.bmdb.sqlalchemy import baremetal_models
+from nova.virt.baremetal.bmdb.sqlalchemy.baremetal_session import get_session
 from sqlalchemy import and_
 from sqlalchemy import or_
 from sqlalchemy.exc import IntegrityError
