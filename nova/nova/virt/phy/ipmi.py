@@ -19,6 +19,7 @@
 
 """ start add by NTT DOCOMO """
 
+from nova.openstack.common import cfg
 from nova import log as logging
 from nova import utils
 from nova import flags
@@ -26,12 +27,24 @@ from nova import flags
 from nova.virt.phy import physical_states
 
 import os
+import stat
 import time
 import tempfile
 
+#TODO: rename to baremeteal_xxx
+opts = [
+    cfg.StrOpt('physical_console',
+               default='phy_console',
+               help='path to phy_console'),
+    cfg.StrOpt('physical_console_pid_dir',
+               default='/var/lib/nova/phy/console',
+               help='path to directory stores pidfiles of phy_console'),
+    ]
 
 FLAGS = flags.FLAGS
-LOG = logging.getLogger('nova.virt.phy.ipmi')
+FLAGS.register_opts(opts)
+
+LOG = logging.getLogger(__name__)
 
 def get_power_manager(**kwargs):
     return Ipmi(**kwargs)
@@ -39,31 +52,12 @@ def get_power_manager(**kwargs):
 def get_power_manager_dummy(**kwargs):
     return DummyIpmi(**kwargs)
 
-def make_password_file(password):
-    fd_path = tempfile.mkstemp()
-    f = open(fd_path[1], "w")
-    f.write(password)
-    f.close()
-    return fd_path[1]
-
-def exec_ipmi(command,host,user,password,interface="lanplus"):
-    args = []
-    args.append("ipmitool")
-    args.append("-I")
-    args.append(interface)
-    args.append("-H")
-    args.append(host)
-    args.append("-U")
-    args.append(user)
-    args.append("-f")
-    pwfile = make_password_file(password)
-    args.append(pwfile)
-    args.extend(command.split(" "))
-    LOG.debug("args: %s", args)
-    out,err = utils.execute(*args, attempts=3)
-    os.unlink(pwfile)
-    return (out,err)
-
+def _make_password_file(password):
+    fd, path = tempfile.mkstemp()
+    os.fchmod(fd, stat.S_IRUSR | stat.S_IWUSR)
+    with os.fdopen(fd, "w") as f:
+        f.write(password)
+    return path
 
 def _unlink_without_raise(path):
     try:
@@ -83,7 +77,7 @@ class IpmiError(Exception):
 
 class Ipmi:
 
-    def __init__(self,address=None,user=None,password=None,interface="lanplus"):
+    def __init__(self, address=None, user=None, password=None, interface="lanplus"):
         if address == None:
             raise IpmiError, (-1, "address is None")
         if user == None:
@@ -97,17 +91,29 @@ class Ipmi:
         self.password = password
         self.interface = interface
 
-    def _exec_ipmi(self,command):
-        out,err = exec_ipmi(command,
-                            self.host,
-                            self.user,
-                            self.password,
-                            self.interface)
+    def _exec_ipmitool(self, command):
+        args = []
+        args.append("ipmitool")
+        args.append("-I")
+        args.append(self.interface)
+        args.append("-H")
+        args.append(self.host)
+        args.append("-U")
+        args.append(self.user)
+        args.append("-f")
+        pwfile = _make_password_file(self.password)
+        try:
+            args.append(pwfile)
+            args.extend(command.split(" "))
+            out,err = utils.execute(*args, attempts=3)
+        finally:
+            _unlink_without_raise(pwfile)
         LOG.debug("out: %s", out)
         LOG.debug("err: %s", err)
         return out, err
     
     def activate_node(self):
+        self._power_off()
         state = self._power_on()
         return state
     
@@ -121,34 +127,36 @@ class Ipmi:
         return state
     
     def _power_on(self):
-        try:
-            self._exec_ipmi("power on")
-        except Exception as ex:
-            LOG.exception("power_on failed", ex)
-            return physical_states.ERROR
-        return physical_states.ACTIVE
-    
-    def _no_exception_power_off(self):
-        try:
-            self._exec_ipmi("power off")
-        except Exception as ex:
-            LOG.exception("power_off failed", ex)
-
-    def _power_off(self):
         count = 0
-        while not self.is_power_off():
+        while not self.is_power_on():
             count += 1
             if count > 3:
                 return physical_states.ERROR
-            self._no_exception_power_off()
+            try:
+                self._exec_ipmitool("power on")
+            except Exception as ex:
+                LOG.exception("power_on failed", ex)
+            time.sleep(5)
+        return physical_states.ACTIVE
+
+    def _power_off(self):
+        count = 0
+        while not self._is_power_off():
+            count += 1
+            if count > 3:
+                return physical_states.ERROR
+            try:
+                self._exec_ipmitool("power off")
+            except Exception as ex:
+                LOG.exception("power_off failed", ex)
             time.sleep(5)
         return physical_states.DELETED
 
     def _power_status(self):
-        out_err = self._exec_ipmi("power status")
+        out_err = self._exec_ipmitool("power status")
         return out_err[0]
 
-    def is_power_off(self):
+    def _is_power_off(self):
         r = self._power_status()
         return r == "Chassis Power is off\n"
 
@@ -157,9 +165,8 @@ class Ipmi:
         return r == "Chassis Power is on\n"
  
     def start_console(self, port, host_id):
-        pidfile = self._console_pidfile(host_id)
-        
         if FLAGS.physical_console:
+            pidfile = self._console_pidfile(host_id)
             (out,err) = utils.execute(FLAGS.physical_console,
                                 '--ipmi_address=%s' % self.host,
                                 '--ipmi_user=%s' % self.user,
@@ -188,25 +195,19 @@ class Ipmi:
         return None
 
 
-
 class DummyIpmi:
 
-    def __init__(self):
+    def __init__(self, *args, **kwargs):
         pass
 
     def activate_node(self):
-        self._power_off()
-        state = self.power_on()
-        return state
-
-    def _power_on(self):
         return physical_states.ACTIVE
 
-    def _power_off(self):
-        return physical_states.DELETED
+    def reboot_node(self):
+        return physical_states.ACTIVE
 
-    def is_power_off(self):
-        return True
+    def deactivate_node(self):
+        return physical_states.DELETED
 
     def is_power_on(self):
         return True

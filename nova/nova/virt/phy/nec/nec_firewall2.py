@@ -26,7 +26,7 @@ from nova.virt.baremetal import bmdb
 from nova import flags
 from nova import log as logging
 from nova import utils
-from nova.virt.firewall import FirewallDriver
+from nova.virt import firewall
 
 from nec_firewall import _get_vifinfo_uuid
 from nec_firewall import _build_deny_dhcp_server
@@ -37,7 +37,7 @@ from nec_firewall import _list_filters
 from nec_firewall import _delete_filters
 
 
-LOG = logging.getLogger("nova.virt.phy.nec_firewall")
+LOG = logging.getLogger(__name__)
 FLAGS = flags.FLAGS
 
 INTERNAL_SECURITY_GROUP_PRIORITY = 10020
@@ -243,7 +243,7 @@ def _delete_all(conn):
     pass
 
 
-class QuantumFilterFirewall(FirewallDriver):
+class QuantumFilterFirewall(firewall.FirewallDriver):
 
     # self._network_infos = { instance_id: network_info }
     # self._basic_filters = { instance_id: { network_uuid: [filter_id] } }
@@ -313,36 +313,6 @@ class QuantumFilterFirewall(FirewallDriver):
         """Check nova-instance-instance-xxx exists"""
         return self._filters.has_key(instance.id)
 
-
-class DisabledQuantumFilterFirewall(FirewallDriver):
-
-    # self._network_infos = { instance_id: network_info }
-    # self._basic_filters = { instance_id: { network_uuid: [filter_id] } }
-    # self._filters = { instance_id: { network_uuid: [filter_id] } }
-    
-    def __init__(self):
-        pass
-
-    def update_instance_filter(self, instance, network_info):
-        pass
-
-    def unfilter_instance(self, instance, network_info):
-        pass
-
-    def refresh_security_group_rules(self, security_group_id):
-        pass
-
-    def refresh_security_group_members(self, security_group_id):
-        pass
-
-    def refresh_provider_fw_rules(self):
-        pass
-
-    def setup_basic_filtering(self, instance, network_info):
-        pass
-
-    def instance_filter_exists(self, instance, network_info):
-        return False
      
 """ end mod by NTT DOCOMO """
 

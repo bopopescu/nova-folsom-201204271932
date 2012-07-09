@@ -9,7 +9,7 @@ from webob import exc
 
 FLAGS = flags.FLAGS
 
-LOG = logging.getLogger('nova.virt.phy.nec.vif_driver')
+LOG = logging.getLogger(__name__)
 
 
 class NECVIFDriver(vif_driver.PhyVIFDriver):

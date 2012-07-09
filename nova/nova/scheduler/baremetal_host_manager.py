@@ -36,6 +36,13 @@ from nova.virt.baremetal import bmdb
 from nova import context as ctx
 from nova.scheduler import host_manager
 import operator
+
+def _as_dict(o):
+    if isinstance(o, dict):
+        return o
+    else:
+        return o.__dict__
+
 """ end add by NTT DOCOMO """
 
 host_manager_opts = []
@@ -119,12 +126,12 @@ class BaremetalHostState(host_manager.HostState):
             LOG.debug("point0.1: self=%s, phy_hosts=%s", str(self), PP.pformat(phy_hosts))
             
             for host in phy_hosts:
-                if not host.instance_id:
+                if not host['instance_id']:
                     self.available_hosts.append(host)
                     
             """those sorting should be decided by weight in a scheduler """
-            self.available_hosts = sorted(self.available_hosts, key=operator.attrgetter('memory_mb'), reverse=True)
-            self.available_hosts = sorted(self.available_hosts, key=operator.attrgetter('cpus'), reverse=True)
+            self.available_hosts = sorted(self.available_hosts, key=operator.itemgetter('memory_mb'), reverse=True)
+            self.available_hosts = sorted(self.available_hosts, key=operator.itemgetter('cpus'), reverse=True)
             
             LOG.debug("point0.2: self=%s available_hosts=%s", str(self), PP.pformat(self.available_hosts))
               
@@ -174,11 +181,11 @@ class BaremetalHostState(host_manager.HostState):
             if phy_host:
                 return
             elif len(self.available_hosts):
-                consumed_host = self.available_hosts.pop()
-                LOG.debug("point1.0.1: self=%s consumed_host=%s", str(self), PP.pformat(consumed_host.__dict__))
+		consumed_host = self.available_hosts.pop(0)
+                LOG.debug("point1.0.1: self=%s consumed_host=%s", str(self), PP.pformat(_as_dict(consumed_host)))
             if len(self.available_hosts):
                 phy_host = self.available_hosts[0]
-                LOG.debug("point1.0.2: self=%s phy_hosts=%s", str(self), PP.pformat(phy_host.__dict__))
+                LOG.debug("point1.0.2: self=%s phy_hosts=%s", str(self), PP.pformat(_as_dict(phy_host)))
  
             else:
                 phy_host = {}

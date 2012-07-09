@@ -17,17 +17,15 @@
 
 from nova import flags
 from nova import log as logging
-from nova import utils
 from nova.virt.vif import VIFDriver
 
 from nova import context
-from nova import db
 from nova.virt.baremetal import bmdb
 from nova import exception
 
 FLAGS = flags.FLAGS
 
-LOG = logging.getLogger('nova.virt.phy.vif_driver')
+LOG = logging.getLogger(__name__)
 
 class PhyVIFDriver(VIFDriver):
 

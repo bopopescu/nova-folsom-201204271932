@@ -31,6 +31,7 @@ from sqlalchemy.schema import ForeignKeyConstraint
 from nova import flags
 
 from nova.db.sqlalchemy import models
+from nova.virt.baremetal.bmdb.sqlalchemy import baremetal_session
 
 
 FLAGS = flags.FLAGS
@@ -84,6 +85,15 @@ class PhyDeployment(BASE, models.NovaBase):
     pxe_config_path = Column(String(255))
     root_mb = Column(Integer)
     swap_mb = Column(Integer)
+
+def register_models():
+    engine = baremetal_session.get_engine()
+    BASE.metadata.create_all(engine)
+
+def unregister_models():
+    engine = baremetal_session.get_engine()
+    BASE.metadata.drop_all(engine)
+
 
 """ end add by NTT DOCOMO """
 

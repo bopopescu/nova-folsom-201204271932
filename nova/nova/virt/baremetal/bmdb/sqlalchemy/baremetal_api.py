@@ -1,5 +1,6 @@
 # vim: tabstop=4 shiftwidth=4 softtabstop=4
 
+# Copyright (c) 2012 NTT DOCOMO, INC. 
 # Copyright (c) 2011 X.commerce, a business unit of eBay Inc.
 # Copyright 2010 United States Government as represented by the
 # Administrator of the National Aeronautics and Space Administration.
@@ -18,6 +19,8 @@
 #    under the License.
 
 """Implementation of SQLAlchemy backend."""
+
+""" start add by NTT DOCOMO """
 
 from nova import exception
 from nova import flags
@@ -41,8 +44,6 @@ from nova.db.sqlalchemy.api import is_user_context
 FLAGS = flags.FLAGS
 
 LOG = logging.getLogger(__name__)
-
-""" start add by NTT DOCOMO """
 
 def model_query(context, *args, **kwargs):
     """Query helper that accounts for context's `read_deleted` field.
@@ -102,10 +103,6 @@ def phy_host_get(context, phy_host_id, session=None):
     result = model_query(context, baremetal_models.PhyHost, read_deleted="no", session=session).\
                      filter_by(id=phy_host_id).\
                      first()
-
-    if not result:
-        raise exception.Error(host=phy_host_id)
-
     return result
 
 
@@ -114,10 +111,6 @@ def phy_host_get_by_pxe_mac_address(context, pxe_mac_address, session=None):
     result = model_query(context, baremetal_models.PhyHost, read_deleted="no", session=session).\
                      filter_by(pxe_mac_address=pxe_mac_address).\
                      first()
-
-    if not result:
-        raise exception.Error(host=pxe_mac_address)
-
     return result
 
 
@@ -126,10 +119,6 @@ def phy_host_get_by_ipmi_address(context, ipmi_address, session=None):
     result = model_query(context, baremetal_models.PhyHost, read_deleted="no", session=session).\
                      filter_by(ipmi_address=ipmi_address).\
                      first()
-
-    if not result:
-        raise exception.Error(host=ipmi_address)
-
     return result
 
 
@@ -164,7 +153,7 @@ def phy_host_update(context, phy_host_id, values, session=None):
 
 @require_admin_context
 def phy_host_destroy(context, phy_host_id, session=None):
-    model_query(context, baremetal_models.PhyHost, session=None).\
+    model_query(context, baremetal_models.PhyHost, session=session).\
                 filter_by(id=phy_host_id).\
                 update({'deleted': True,
                         'deleted_at': utils.utcnow(),
@@ -240,7 +229,7 @@ def phy_pxe_ip_associate(context, phy_host_id, session=None):
 @require_admin_context
 def phy_pxe_ip_disassociate(context, phy_host_id, session=None):
     if not session:
-       session = get_session()
+        session = get_session()
     with session.begin():
         ip = phy_pxe_ip_get_by_phy_host_id(context, phy_host_id, session=session)
         if ip:

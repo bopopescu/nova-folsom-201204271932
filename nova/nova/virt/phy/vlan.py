@@ -23,7 +23,7 @@ from nova import log as logging
 from nova import utils
 
 
-LOG = logging.getLogger("phy.vlan")
+LOG = logging.getLogger(__name__)
 
 
 FLAGS = flags.FLAGS
@@ -50,7 +50,7 @@ def ensure_vlan(vlan_num, parent_interface, mac_address=None):
     _execute('ip', 'link', 'set', parent_interface, 'up', run_as_root=True)
     vlan_interface = 'vlan%s' % vlan_num
     if not _device_exists(vlan_interface):
-        LOG.debug(_('Starting VLAN inteface %s'), vlan_interface)
+        LOG.debug(_('Starting VLAN interface %s'), vlan_interface)
         _execute('vconfig', 'set_name_type', 'VLAN_PLUS_VID_NO_PAD', run_as_root=True)
         _execute('vconfig', 'add', parent_interface, vlan_num, run_as_root=True)
         if mac_address:
@@ -58,5 +58,16 @@ def ensure_vlan(vlan_num, parent_interface, mac_address=None):
                      run_as_root=True)
     _execute('ip', 'link', 'set', vlan_interface, 'up', run_as_root=True)
     return vlan_interface
+
+
+@utils.synchronized('ensure_vlan', external=True)
+def ensure_no_vlan(vlan_num, parent_interface):
+    """Delete a vlan if it exists."""
+    vlan_interface = 'vlan%s' % vlan_num
+    if _device_exists(vlan_interface):
+        LOG.debug(_('Stopping VLAN interface %s'), vlan_interface)
+        _execute('ip', 'link', 'set', vlan_interface, 'down', run_as_root=True)
+        _execute('vconfig', 'rem', vlan_interface, run_as_root=True)
+
 
 """ end add by NTT DOCOMO """

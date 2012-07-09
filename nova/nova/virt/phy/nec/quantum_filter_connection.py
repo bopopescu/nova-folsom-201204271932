@@ -20,16 +20,15 @@
 
 from nova import flags
 from nova import log as logging
-from nova.virt.phy import filter_client as quantum_filter_client
-from nova import utils
+from nova.virt.phy.nec import filter_client as quantum_filter_client
 
 
-LOG = logging.getLogger("nova.virt.phy.quantum_filter_connection")
+LOG = logging.getLogger(__name__)
 
-#FLAGS = flags.FLAGS
-# ensure quantum_connection_* defined
-from nova.network.quantum.quantum_connection import FLAGS
+flags.DECLARE('quantum_connection_host', 'nova.network.quantum.quantum_connection')
+flags.DECLARE('quantum_connection_port', 'nova.network.quantum.quantum_connection')
 
+FLAGS = flags.FLAGS
 
 def _filters_dict_into_list(filters):
     l = []
@@ -50,10 +49,11 @@ class QuantumFilterClientConnection(object):
 
     def __init__(self):
         """Initialize Quantum client class based on flags."""
-        self.client = quantum_filter_client.FilterClient(FLAGS.quantum_connection_host,
-                                            FLAGS.quantum_connection_port,
-                                            format="json",
-                                            logger=LOG)
+        self.client = quantum_filter_client.FilterClient(
+                FLAGS.quantum_connection_host,
+                FLAGS.quantum_connection_port,
+                format="json",
+                logger=LOG)
 
     def create_filter(self, tenant_id, network_id, filter_body):
         resdict = self.client.create_filter(tenant_id, network_id, filter_body)

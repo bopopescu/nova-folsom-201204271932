@@ -20,7 +20,7 @@
 import shlex, subprocess
 import tempfile
 import traceback
-import sys, getopt, os
+import stat, sys, getopt, os
 
 POSSIBLE_TOPDIR = os.path.normpath(os.path.join(os.path.abspath(sys.argv[0]),
                                    os.pardir,
@@ -145,6 +145,15 @@ usage:
 
     exec_command(values)
 
+
+def _make_password_file(password):
+    fd, path = tempfile.mkstemp()
+    os.fchmod(fd, stat.S_IRUSR | stat.S_IWUSR)
+    with os.fdopen(fd, "w") as f:
+        f.write(password)
+    return path
+
+
 def exec_command(args):
     TERMINAL = FLAGS.physical_term
     CERTDIR = FLAGS.physical_term_cert_dir
@@ -158,7 +167,7 @@ def exec_command(args):
     ipmi_password = args['ipmi_password']
     pidfile = args.get('pidfile')
 
-    pwfile = make_password_file(ipmi_password)
+    pwfile = _make_password_file(ipmi_password)
     cur_dir = os.getcwd()
 
     commands.append(TERMINAL)
@@ -185,13 +194,6 @@ def exec_command(args):
     commands.append(ipmi_args)
 
     resp = subprocess.Popen(commands, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-
-def make_password_file(password):
-    fd_path = tempfile.mkstemp()
-    f = open(fd_path[1], "w")
-    f.write(password)
-    f.close()
-    return fd_path[1]
 
 if __name__ == "__main__":
     main()

@@ -25,11 +25,11 @@ from nova import flags
 from nova import log as logging
 from nova.openstack.common import cfg
 from nova import utils
-from nova.virt.firewall import FirewallDriver
+from nova.virt import firewall
 from nova.network.quantum.quantum_connection import QuantumClientConnection
 
 
-LOG = logging.getLogger("nova.virt.phy.nec_firewall")
+LOG = logging.getLogger(__name__)
 FLAGS = flags.FLAGS
 
 nec_firewall_opts = [ 
@@ -189,7 +189,7 @@ def _from_network_info(network, mapping, tenant_id):
     return (vifinfo_uuid, network_uuid, ips)
 
 
-class QuantumFilterFirewall(FirewallDriver):
+class QuantumFilterFirewall(firewall.FirewallDriver):
 
     # self._network_infos = { instance_id: network_info }
     # self._basic_filters = { instance_id: { network_uuid: [filter_id] } }

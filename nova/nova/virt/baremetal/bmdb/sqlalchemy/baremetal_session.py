@@ -1,5 +1,6 @@
 # vim: tabstop=4 shiftwidth=4 softtabstop=4
 
+# Copyright (c) 2012 NTT DOCOMO, INC. 
 # Copyright 2010 United States Government as represented by the
 # Administrator of the National Aeronautics and Space Administration.
 # All Rights Reserved.
@@ -20,9 +21,8 @@
 
 import time
 
-import sqlalchemy.interfaces
-import sqlalchemy.orm
-from sqlalchemy.exc import DisconnectionError, OperationalError
+import sqlalchemy
+from sqlalchemy.exc import OperationalError
 from sqlalchemy.pool import NullPool, StaticPool
 
 from nova.openstack.common import cfg
@@ -30,6 +30,10 @@ import nova.exception
 import nova.flags as flags
 import nova.log as logging
 
+from nova.db.sqlalchemy.session import SynchronousSwitchListener
+from nova.db.sqlalchemy.session import MySQLPingListener
+from nova.db.sqlalchemy.session import is_db_connection_error
+from nova.db.sqlalchemy.session import get_maker
 
 opts = [
     cfg.StrOpt('baremetal_sql_connection',
@@ -58,47 +62,6 @@ def get_session(autocommit=True, expire_on_commit=False):
     session.query = nova.exception.wrap_db_error(session.query)
     session.flush = nova.exception.wrap_db_error(session.flush)
     return session
-
-
-class SynchronousSwitchListener(sqlalchemy.interfaces.PoolListener):
-
-    """Switch sqlite connections to non-synchronous mode"""
-
-    def connect(self, dbapi_con, con_record):
-        dbapi_con.execute("PRAGMA synchronous = OFF")
-
-
-class MySQLPingListener(object):
-
-    """
-    Ensures that MySQL connections checked out of the
-    pool are alive.
-
-    Borrowed from:
-    http://groups.google.com/group/sqlalchemy/msg/a4ce563d802c929f
-    """
-
-    def checkout(self, dbapi_con, con_record, con_proxy):
-        try:
-            dbapi_con.cursor().execute('select 1')
-        except dbapi_con.OperationalError, ex:
-            if ex.args[0] in (2006, 2013, 2014, 2045, 2055):
-                LOG.warn('Got mysql server has gone away: %s', ex)
-                raise DisconnectionError("Database server went away")
-            else:
-                raise
-
-
-def is_db_connection_error(args):
-    """Return True if error in connecting to db."""
-    # NOTE(adam_g): This is currently MySQL specific and needs to be extended
-    #               to support Postgres and others.
-    conn_err_codes = ('2002', '2003', '2006')
-    for err_code in conn_err_codes:
-        if args.find(err_code) != -1:
-            return True
-    return False
-
 
 def get_engine():
     """Return a SQLAlchemy engine."""
@@ -156,10 +119,3 @@ def get_engine():
                        not is_db_connection_error(e.args[0]):
                         raise
     return _ENGINE
-
-
-def get_maker(engine, autocommit=True, expire_on_commit=False):
-    """Return a SQLAlchemy sessionmaker using the given engine."""
-    return sqlalchemy.orm.sessionmaker(bind=engine,
-                                       autocommit=autocommit,
-                                       expire_on_commit=expire_on_commit)
