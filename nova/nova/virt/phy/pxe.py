@@ -485,7 +485,15 @@ class PXE:
 
         pxe_config_path = os.path.join(tftp_root, "pxelinux.cfg", "01-" + host['pxe_mac_address'].replace(":", "-").lower())
         _unlink_without_raise(pxe_config_path)
-
     
+    def activate_node(self, var, context, host, instance):
+        pass
+
+    def deactivate_node(self, var, context, host, instance):
+        pass
+
+    def get_console_output(self, host, instance):
+        raise NotImplementedError()
+
 
 """ end add by NTT DOCOMO """

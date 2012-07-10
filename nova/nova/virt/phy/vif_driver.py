@@ -38,25 +38,25 @@ class PhyVIFDriver(VIFDriver):
     def plug(self, instance, network, mapping):
         LOG.debug("plug: %s", locals())
         ctx = context.get_admin_context()
-        ph = bmdb.phy_host_get_by_instance_id(ctx, instance.id)
+        ph = bmdb.phy_host_get_by_instance_id(ctx, instance['id'])
         if not ph:
             return
-        pifs = bmdb.phy_interface_get_all_by_phy_host_id(ctx, ph.id)
+        pifs = bmdb.phy_interface_get_all_by_phy_host_id(ctx, ph['id'])
         for pif in pifs:
-            if not pif.vif_uuid:
-                bmdb.phy_interface_set_vif_uuid(ctx, pif.id, mapping['vif_uuid'])
-                LOG.debug("pif:%s is plugged (vif_uuid=%s)", pif.id, mapping['vif_uuid'])
+            if not pif['vif_uuid']:
+                bmdb.phy_interface_set_vif_uuid(ctx, pif['id'], mapping.get('vif_uuid'))
+                LOG.debug("pif:%s is plugged (vif_uuid=%s)", pif['id'], mapping.get('vif_uuid'))
                 self._after_plug(instance, network, mapping, pif)
                 return
-        raise exception.Error("phy_host:%s has no vacant pif for vif_uuid=%s" % (ph.id, mapping['vif_uuid']))
+        raise exception.Error("phy_host:%s has no vacant pif for vif_uuid=%s" % (ph['id'], mapping['vif_uuid']))
 
     def unplug(self, instance, network, mapping):
         LOG.debug("unplug: %s", locals())
         ctx = context.get_admin_context()
         pif = bmdb.phy_interface_get_by_vif_uuid(ctx, mapping['vif_uuid'])
         if pif:
-            bmdb.phy_interface_set_vif_uuid(ctx, pif.id, None)
-            LOG.debug("pif:%s is unplugged (vif_uuid=%s)", pif.id, mapping['vif_uuid'])
+            bmdb.phy_interface_set_vif_uuid(ctx, pif['id'], None)
+            LOG.debug("pif:%s is unplugged (vif_uuid=%s)", pif['id'], mapping.get('vif_uuid'))
             self._after_unplug(instance, network, mapping, pif)
         else:
             LOG.warn("no pif for vif_uuid=%s" % mapping['vif_uuid'])

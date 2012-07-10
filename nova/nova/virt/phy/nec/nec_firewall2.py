@@ -254,11 +254,13 @@ class QuantumFilterFirewall(firewall.FirewallDriver):
         QFC = utils.import_class(FLAGS.physical_quantum_filter_connection)
         self._connection = QFC()
 
-    def update_instance_filter(self, instance, network_info):
-        LOG.debug("update_instance_filter: %s", locals())
+    def prepare_instance_filter(self, instance, network_info):
+        """Prepare filters for the instance.
+        At this point, the instance isn't running yet."""
+        LOG.debug("prepare_instance_filter: %s", locals())
         _delete_all(self._connection)
         _fullbuild(self._connection);
-        LOG.debug("update_instance_filter: end")
+        LOG.debug("prepare_instance_filter: end")
 
     def unfilter_instance(self, instance, network_info):
         """Stop filtering instance"""
@@ -266,6 +268,16 @@ class QuantumFilterFirewall(firewall.FirewallDriver):
         _delete_all(self._connection)
         _fullbuild(self._connection);
         LOG.debug("unfilter_instance: end")
+
+    def apply_instance_filter(self, instance, network_info):
+        """Apply instance filter.
+
+        Once this method returns, the instance should be firewalled
+        appropriately. This method should as far as possible be a
+        no-op. It's vastly preferred to get everything set up in
+        prepare_instance_filter.
+        """
+        pass
 
     def refresh_security_group_rules(self, security_group_id):
         """Refresh security group rules from data store

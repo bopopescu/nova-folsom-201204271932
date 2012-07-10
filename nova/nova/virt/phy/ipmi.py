@@ -46,11 +46,15 @@ FLAGS.register_opts(opts)
 
 LOG = logging.getLogger(__name__)
 
-def get_power_manager(**kwargs):
-    return Ipmi(**kwargs)
+def get_power_manager(phy_host, **kwargs):
+    pm = Ipmi(address=phy_host['ipmi_address'],
+              user=phy_host['ipmi_user'],
+              password=phy_host['ipmi_password'],
+              interface="lanplus")
+    return pm
 
-def get_power_manager_dummy(**kwargs):
-    return DummyIpmi(**kwargs)
+def get_power_manager_dummy(phy_host, **kwargs):
+    return DummyIpmi()
 
 def _make_password_file(password):
     fd, path = tempfile.mkstemp()
@@ -86,22 +90,22 @@ class Ipmi:
             raise IpmiError, (-1, "password is None")
         if interface == None:
             raise IpmiError, (-1, "interface is None")
-        self.host = address
-        self.user = user
-        self.password = password
-        self.interface = interface
+        self._address = address
+        self._user = user
+        self._password = password
+        self._interface = interface
 
     def _exec_ipmitool(self, command):
         args = []
         args.append("ipmitool")
         args.append("-I")
-        args.append(self.interface)
+        args.append(self._interface)
         args.append("-H")
-        args.append(self.host)
+        args.append(self._address)
         args.append("-U")
-        args.append(self.user)
+        args.append(self._user)
         args.append("-f")
-        pwfile = _make_password_file(self.password)
+        pwfile = _make_password_file(self._password)
         try:
             args.append(pwfile)
             args.extend(command.split(" "))
@@ -168,9 +172,9 @@ class Ipmi:
         if FLAGS.physical_console:
             pidfile = self._console_pidfile(host_id)
             (out,err) = utils.execute(FLAGS.physical_console,
-                                '--ipmi_address=%s' % self.host,
-                                '--ipmi_user=%s' % self.user,
-                                '--ipmi_password=%s' % self.password,
+                                '--ipmi_address=%s' % self._address,
+                                '--ipmi_user=%s' % self._user,
+                                '--ipmi_password=%s' % self._password,
                                 '--terminal_port=%s' % port,
                                 '--pidfile=%s' % pidfile,
                                 run_as_root=True)
@@ -197,7 +201,7 @@ class Ipmi:
 
 class DummyIpmi:
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self):
         pass
 
     def activate_node(self):

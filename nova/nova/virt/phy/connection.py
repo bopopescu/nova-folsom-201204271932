@@ -172,10 +172,7 @@ class Connection(driver.ComputeDriver):
         ctx = nova_context.get_admin_context()
         for host in _get_phy_hosts(ctx):
             if host['instance_id']:
-                pm = nodes.get_power_manager(address=host['ipmi_address'],
-                                     user=host['ipmi_user'],
-                                     password=host['ipmi_password'],
-                                     interface="lanplus")
+                pm = nodes.get_power_manager(host)
                 ps = power_state.SHUTOFF
                 if pm.is_power_on():
                     ps = power_state.RUNNING
@@ -214,26 +211,19 @@ class Connection(driver.ComputeDriver):
 
         self.plug_vifs(instance, network_info)
 
-        # start firewall
         self._firewall_driver.setup_basic_filtering(instance, network_info)
-        self._firewall_driver.update_instance_filter(instance, network_info)
+        self._firewall_driver.prepare_instance_filter(instance, network_info)
 
         self.baremetal_nodes.create_image(var, context, image_meta, host, instance)
-
         self.baremetal_nodes.activate_bootloader(var, context, host, instance)
-
         #TODO attach volumes
-
-        LOG.debug("power on")
-
-        pm = nodes.get_power_manager(address=host['ipmi_address'],
-                                     user=host['ipmi_user'],
-                                     password=host['ipmi_password'],
-                                     interface="lanplus")
+        pm = nodes.get_power_manager(host)
         state = pm.activate_node()
 
         _update_physical_state(context, host, instance, state)
         
+        self.baremetal_nodes.activate_node(var, context, host, instance)
+        self._firewall_driver.apply_instance_filter(instance, network_info)
         pm.start_console(host['terminal_port'], host['id'])
 
     def reboot(self, instance, network_info):
@@ -243,10 +233,7 @@ class Connection(driver.ComputeDriver):
             raise exception.InstanceNotFound(instance_id=instance['id'])
 
         ctx = nova_context.get_admin_context()
-        pm = nodes.get_power_manager(address=host['ipmi_address'],
-                                     user=host['ipmi_user'],
-                                     password=host['ipmi_password'],
-                                     interface="lanplus")
+        pm = nodes.get_power_manager(host)
         state = pm.reboot_node()
         _update_physical_state(ctx, host, instance, state)
 
@@ -263,10 +250,9 @@ class Connection(driver.ComputeDriver):
  
         var = self.baremetal_nodes.define_vars(instance, network_info, block_device_info)
 
-        pm = nodes.get_power_manager(address=host['ipmi_address'],
-                                     user=host['ipmi_user'],
-                                     password=host['ipmi_password'],
-                                     interface="lanplus")
+        self.baremetal_nodes.activate_node(var, ctx, host, instance)
+
+        pm = nodes.get_power_manager(host)
 
         ## stop console
         pm.stop_console(host['id'])
@@ -309,10 +295,7 @@ class Connection(driver.ComputeDriver):
         host = _get_phy_host_by_instance_id(instance['id'])
         if not host:
             raise exception.InstanceNotFound(instance_id=instance['id'])
-        pm = nodes.get_power_manager(address=host['ipmi_address'],
-                                     user=host['ipmi_user'],
-                                     password=host['ipmi_password'],
-                                     interface="lanplus")
+        pm = nodes.get_power_manager(host)
         ps = power_state.SHUTOFF
         if pm.is_power_on():
             ps = power_state.RUNNING
@@ -415,7 +398,7 @@ class Connection(driver.ComputeDriver):
 
     def ensure_filtering_rules_for_instance(self, instance_ref, network_info):
         self._firewall_driver.setup_basic_filtering(instance_ref, network_info)
-        self._firewall_driver.update_instance_filter(instance_ref, network_info)
+        self._firewall_driver.prepare_instance_filter(instance_ref, network_info)
 
     def unfilter_instance(self, instance_ref, network_info):
         self._firewall_driver.unfilter_instance(instance_ref,
@@ -472,7 +455,10 @@ class Connection(driver.ComputeDriver):
     def manage_image_cache(self, context):
         """Manage the local cache of images."""
         self._image_cache_manager.verify_base_images(context)
-
+    
+    def get_console_output(self, instance):
+        host = _get_phy_host_by_instance_id(instance['id'])
+        return self.baremetal_nodes.get_console_output(host, instance)
 
 
 """ end add by NTT DOCOMO """

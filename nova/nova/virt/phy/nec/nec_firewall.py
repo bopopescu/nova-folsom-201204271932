@@ -203,8 +203,10 @@ class QuantumFilterFirewall(firewall.FirewallDriver):
         self._basic_filters = {}
         self._filters = {}
 
-    def update_instance_filter(self, instance, network_info):
-        LOG.debug("update_instance_filter: %s", locals())
+    def prepare_instance_filter(self, instance, network_info):
+        """Prepare filters for the instance.
+        At this point, the instance isn't running yet."""
+        LOG.debug("prepare_instance_filter: %s", locals())
         tenant_id = instance['project_id']
         ctxt = context.get_admin_context()
         new_filters = {}
@@ -243,7 +245,7 @@ class QuantumFilterFirewall(firewall.FirewallDriver):
 
         self._filters[instance.id] = new_filters
         self._network_infos[instance.id] = network_info
-        LOG.debug("update_instance_filter: end")
+        LOG.debug("prepare_instance_filter: end")
 
     def unfilter_instance(self, instance, network_info):
         """Stop filtering instance"""
@@ -258,6 +260,16 @@ class QuantumFilterFirewall(firewall.FirewallDriver):
         self._network_infos.pop(instance.id, {})
         LOG.debug("unfilter_instance: end")
 
+    def apply_instance_filter(self, instance, network_info):
+        """Apply instance filter.
+
+        Once this method returns, the instance should be firewalled
+        appropriately. This method should as far as possible be a
+        no-op. It's vastly preferred to get everything set up in
+        prepare_instance_filter.
+        """
+        pass
+
     def refresh_security_group_rules(self, security_group_id):
         """Refresh security group rules from data store
 
@@ -269,7 +281,7 @@ class QuantumFilterFirewall(firewall.FirewallDriver):
         for member in sg.instances:
             if self._filters.has_key(member.id):
                 network_info = self._network_infos.get(member.id)
-                self.update_instance_filter(member, network_info)
+                self.prepare_instance_filter(member, network_info)
         LOG.debug("refresh_security_group_rules: end")
 
     def refresh_security_group_members(self, security_group_id):

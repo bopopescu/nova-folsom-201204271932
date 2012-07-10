@@ -49,5 +49,15 @@ class Fake:
     def deactivate_bootloader(self, var, context, host, instance):
         pass
     
+    def activate_node(self, var, context, host, instance):
+        """For operations after power on"""
+        pass
+    
+    def deativate_node(self, var, context, host, instance):
+        """For operations before power off"""
+        pass
+    
+    def get_console_output(self, host, instance):
+        return 'fake\nconsole\noutput for instance %s' % instance['id']
 
 """ end add by NTT DOCOMO """

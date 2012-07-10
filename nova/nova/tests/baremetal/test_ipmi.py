@@ -30,6 +30,7 @@ from nova import test
 from nova import utils
 
 from nova.virt.phy import ipmi
+from nova.tests.baremetal import bmdb as bmdb_utils
 
 LOG = logging.getLogger(__name__)
 FLAGS = flags.FLAGS
@@ -41,6 +42,25 @@ class BaremetalIPMITestCase(test.TestCase):
 
     def tearDown(self):
         super(BaremetalIPMITestCase, self).tearDown()
+    
+    def test_get_power_manager(self):
+        h1 = bmdb_utils.new_phy_host(
+                ipmi_address='10.1.1.1',
+                ipmi_user='h1_user',
+                ipmi_password='h1_password')
+        pm1 = ipmi.get_power_manager(h1)
+        self.assertEqual(pm1._address, '10.1.1.1')
+        self.assertEqual(pm1._user, 'h1_user')
+        self.assertEqual(pm1._password, 'h1_password')
+
+        h2 = bmdb_utils.new_phy_host(
+                ipmi_address='10.2.2.2',
+                ipmi_user='h2_user',
+                ipmi_password='h2_password')
+        pm2 = ipmi.get_power_manager(h2)
+        self.assertEqual(pm2._address, '10.2.2.2')
+        self.assertEqual(pm2._user, 'h2_user')
+        self.assertEqual(pm2._password, 'h2_password')
     
     def test_make_password_file(self):
         PASSWORD = 'xyz'

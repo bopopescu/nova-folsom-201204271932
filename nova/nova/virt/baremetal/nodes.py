@@ -45,12 +45,12 @@ def get_baremetal_nodes():
     else:
         raise exception.NovaException(_("Unknown baremetal driver %(d)s"))
 
-def get_power_manager(**kwargs):
+def get_power_manager(phy_host, **kwargs):
     #TODO: specify power_manager per host
     d = FLAGS.power_manager
     if d == 'ipmi':
-        return ipmi.get_power_manager(**kwargs)
+        return ipmi.get_power_manager(phy_host, **kwargs)
     if d == 'dummy':
-        return ipmi.get_power_manager_dummy(**kwargs)
+        return ipmi.get_power_manager_dummy(phy_host, **kwargs)
     else:
         raise exception.NovaException(_("Unknown power manager %(d)s"))

@@ -27,29 +27,34 @@ flags.DECLARE('baremetal_sql_connection', 'nova.virt.baremetal.bmdb.sqlalchemy.b
     
 def new_phy_host(**kwargs):
     h = baremetal_models.PhyHost()
-    h.id = kwargs.get('id', None)
-    h.service_id = kwargs.get('service_id', None)
-    h.instance_id = kwargs.get('instance_id', None)
-    h.cpus = kwargs.get('cpus', 1)
-    h.memory_mb = kwargs.get('memory_mb', 1024)
-    h.local_gb = kwargs.get('local_gb', 64)
-    h.ipmi_address = kwargs.get('ipmi_address', '192.168.1.1')
-    h.ipmi_user = kwargs.get('ipmi_user', 'ipmi_user')
-    h.ipmi_password = kwargs.get('ipmi_password', 'ipmi_password')
-    h.pxe_mac_address = kwargs.get('pxe_mac_address', '12:34:56:78:90:ab')
-    h.registration_status = kwargs.get('registration_status', 'done')
-    h.task_state = kwargs.get('task_state', None)
-    h.pxe_vlan_id = kwargs.get('pxe_vlan_id', None)
-    h.terminal_port = kwargs.get('terminal_port', 8000)
+    h.id = kwargs.pop('id', None)
+    h.service_id = kwargs.pop('service_id', None)
+    h.instance_id = kwargs.pop('instance_id', None)
+    h.cpus = kwargs.pop('cpus', 1)
+    h.memory_mb = kwargs.pop('memory_mb', 1024)
+    h.local_gb = kwargs.pop('local_gb', 64)
+    h.ipmi_address = kwargs.pop('ipmi_address', '192.168.1.1')
+    h.ipmi_user = kwargs.pop('ipmi_user', 'ipmi_user')
+    h.ipmi_password = kwargs.pop('ipmi_password', 'ipmi_password')
+    h.pxe_mac_address = kwargs.pop('pxe_mac_address', '12:34:56:78:90:ab')
+    h.registration_status = kwargs.pop('registration_status', 'done')
+    h.task_state = kwargs.pop('task_state', None)
+    h.pxe_vlan_id = kwargs.pop('pxe_vlan_id', None)
+    h.terminal_port = kwargs.pop('terminal_port', 8000)
+    if len(kwargs) > 0:
+        raise Exception("unknown field: %s" % ','.join(kwargs.keys()))
     return h
+
+def clear_tables():
+    baremetal_models.unregister_models()
+    baremetal_models.register_models()
 
 class BMDBTestCase(test.TestCase):
     
     def setUp(self):
         super(BMDBTestCase, self).setUp()
         self.flags(baremetal_sql_connection='sqlite:///:memory:')
-        baremetal_models.unregister_models()
-        baremetal_models.register_models()
+        clear_tables()
         self.context = nova_context.get_admin_context()
     
 
