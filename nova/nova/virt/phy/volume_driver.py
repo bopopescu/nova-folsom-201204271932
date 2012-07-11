@@ -28,7 +28,7 @@ from nova.virt.baremetal import bmdb
 from nova.virt import driver
 from nova.virt.libvirt import utils as libvirt_utils
 
-from nova.virt.phy.connection import _get_phy_host_by_instance_name
+from nova.virt.phy.driver import _get_phy_host_by_instance_name
 
 opts = [
     cfg.BoolOpt('baremetal_use_unsafe_iscsi',

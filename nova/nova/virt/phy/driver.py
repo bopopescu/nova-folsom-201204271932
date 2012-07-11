@@ -46,6 +46,9 @@ opts = [
     cfg.StrOpt('baremetal_volume_driver',
                 default='nova.virt.phy.volume_driver.LibvirtVolumeDriver',
                 help='Baremetal volume driver.'),
+    cfg.StrOpt('baremetal_cpu_arch',
+               default='x86_64',
+               help='Baremetal cpu_arch in capability.')
     ]
 
 FLAGS = flags.FLAGS
@@ -128,13 +131,13 @@ def _update_physical_state(context, host, instance, state):
         })
 
 
-class Connection(driver.ComputeDriver):
+class BareMetalDriver(driver.ComputeDriver):
     """Physical hypervisor driver"""
 
     def __init__(self):
         LOG.info(_("Physical driver __init__"))
 
-        super(Connection, self).__init__()
+        super(BareMetalDriver, self).__init__()
         self.baremetal_nodes = nodes.get_baremetal_nodes()
         
         self._vif_driver = utils.import_object(FLAGS.physical_vif_driver)
@@ -415,6 +418,17 @@ class Connection(driver.ComputeDriver):
         memory_free = (dic['memory_mb'] - dic['memory_mb_used']) * 1024 * 1024
         disk_total = dic['local_gb'] * 1024 * 1024 * 1024
         disk_used = dic['local_gb_used'] * 1024 * 1024 * 1024
+
+        # borrow ISI's instance_type_extra_specs code
+        extra_specs = {}
+        extra_specs["hypervisor_type"] = self.get_hypervisor_type()
+        extra_specs["baremetal_driver"] = FLAGS.baremetal_driver
+        for pair in FLAGS.instance_type_extra_specs:
+            keyval = pair.split(':', 1)
+            keyval[0] = keyval[0].strip()
+            keyval[1] = keyval[1].strip()
+            extra_specs[keyval[0]] = keyval[1]
+
         return {
           'host_name-description': 'baremetal ' + FLAGS.host,
           'host_hostname': FLAGS.host,
@@ -431,6 +445,7 @@ class Connection(driver.ComputeDriver):
 #          'host_uuid': 'cedb9b39-9388-41df-8891-c5c9a0c0fe5f',
           'host_name_label': FLAGS.host,
           'type': 'physical',
+          'instance_type_extra_specs': extra_specs,
           }
 
     def update_host_status(self):

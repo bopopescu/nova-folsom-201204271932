@@ -28,7 +28,7 @@ from nova import log as logging
 from nova import test
 from nova.tests import utils as test_utils
 
-from nova.virt.phy import connection as c, physical_states
+from nova.virt.phy import driver as c, physical_states
 from nova.tests.baremetal import bmdb as bmdb_utils
 
 
@@ -90,7 +90,7 @@ class BaremetalConnectionTestCase(test.TestCase):
     
     def test_loading_baremetal_drivers(self):
         from nova.virt.baremetal import fake
-        drv = c.Connection()
+        drv = c.BareMetalDriver()
         self.assertTrue(isinstance(drv.baremetal_nodes, fake.BareMetalNodes))
         self.assertTrue(isinstance(drv._vif_driver, FakeVifDriver))
         self.assertTrue(isinstance(drv._firewall_driver, FakeFirewallDriver))
@@ -110,7 +110,7 @@ class BaremetalConnectionTestCase(test.TestCase):
         nodes.get_baremetal_nodes().AndReturn(fake.Fake())
         self.mox.ReplayAll()
     
-        drv = c.Connection()
+        drv = c.BareMetalDriver()
         drv.spawn(context, instance=instance,
                   image_meta=image_meta,
                   network_info=network_info,
@@ -120,6 +120,19 @@ class BaremetalConnectionTestCase(test.TestCase):
         h = bmdb.phy_host_get(context, self.host_id)
         self.assertEqual(h['instance_id'], instance['id'])
         self.assertEqual(h['task_state'], physical_states.ACTIVE)
+    
+    def test_get_host_stats(self):
+        self.flags(instance_type_extra_specs=['cpu_arch:x86_64', 'x:123', 'y:456',],
+                   baremetal_driver='fake')
+        drv = c.BareMetalDriver()
+        s = drv._get_host_stats()
+        es = s['instance_type_extra_specs']
+        self.assertEqual(es['cpu_arch'], 'x86_64')
+        self.assertEqual(es['x'], '123')
+        self.assertEqual(es['y'], '456')
+        self.assertEqual(es['hypervisor_type'], 'baremetal')
+        self.assertEqual(es['baremetal_driver'], 'fake')
+        self.assertEqual(len(es), 5)
 
 
 class FindHostTestCase(test.TestCase):

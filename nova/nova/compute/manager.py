@@ -124,7 +124,15 @@ compute_opts = [
     cfg.IntOpt("heal_instance_info_cache_interval",
                default=60,
                help="Number of seconds between instance info_cache self "
-                        "healing updates")
+                        "healing updates"),
+# Right now, backport this flag only
+#TODO: rebase
+    cfg.ListOpt('instance_type_extra_specs',
+               default=[],
+               help='a list of additional capabilities corresponding to '
+               'instance_type_extra_specs for this compute '
+               'host to advertise. Valid entries are name=value, pairs '
+               'For example, "key1:val1, key2:val2"'),
     ]
 
 FLAGS = flags.FLAGS
